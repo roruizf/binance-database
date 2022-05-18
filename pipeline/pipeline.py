@@ -295,10 +295,10 @@ def single_insert(conn, insert_req):
     cursor.close()
 
 
-def _load_data_into_database(conn, row, table_name):
+def _load_data_into_database(conn, df, table_name):
 
     # Inserting each row
-    for index, row in row.iterrows():
+    for index, row in df.iterrows():
         query = """
         INSERT into public."%s"(open_time, open, high, low, close, volume, close_time,
         quote_asset_volume, number_of_trades, taker_buy_base_asset_volume,
@@ -321,6 +321,7 @@ if __name__ == '__main__':
     symbols = ['BTCEUR',
                'ETHEUR',
                'BNBEUR']
+    # symbols = ['AXSBUSD', 'MANABUSD', 'LUNABUSD']
     # intervals = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
     intervals = ['1h', '4h', '1d', '1w', '1M']
     limit = 1000
