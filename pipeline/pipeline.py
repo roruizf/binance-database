@@ -3,17 +3,22 @@ import os
 import pandas as pd
 import json
 from datetime import datetime, timedelta
-from time import time
-from utils import connect_to_database
+from time import time, sleep
 from math import ceil
 import psycopg2
 import re
+from dotenv import dotenv_values
 
 
-def main(symbols, intervals, limit):
-    start_time = time()
+def main():
+    starting_time = time()
+
+    # Loading download settings
+    quoteAsset, intervals, limit = _requests_settings()
+    symbols = _load_pairs_trade_symbols(quoteAsset)
+
     # CONNECTION TO THE DATABASE
-    conn = connect_to_database()
+    conn = _connect_to_database()
     for symbol in symbols:
         for interval in intervals:
             table_name = symbol + '_' + interval
@@ -22,8 +27,55 @@ def main(symbols, intervals, limit):
             df = _remove_duplicates(df)
             _load_data_into_database(conn, df, table_name)
     conn.close()
-    elapsed_time = time() - start_time
+    elapsed_time = time() - starting_time
     print("\nElapsed time: %0.2f seconds." % elapsed_time)
+
+
+def _requests_settings():
+    donwload_settings = dict(dotenv_values("requests_settings.env"))
+    quoteAsset = donwload_settings['quoteAsset']
+    intervals = list(donwload_settings['intervals'].split(", "))
+    limit = int(donwload_settings['limit'])
+    return quoteAsset, intervals, limit
+
+
+def _load_pairs_trade_symbols(quoteAsset):
+    path = './trade-symbol-files/' + quoteAsset + '.json'
+
+    with open(path) as json_file:
+        dict_to_load = json.load(json_file)
+
+    currency_symbols = dict_to_load[quoteAsset]
+    print(f'{len(currency_symbols)} pairs have been loaded')
+    return currency_symbols
+
+
+def _connect_to_database():
+    config_credentials = dict(dotenv_values("database.env"))
+    host = config_credentials['host']
+    port = config_credentials['port']
+    database = config_credentials['database']
+    user = config_credentials['user']
+    password = config_credentials['password']
+
+    # CONNECTION TO THE DATABASE
+    try:
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password
+        )
+
+        print("Successful connection")
+        #cursor = conn.cursor()
+        #row = cursor.fetchone()
+        # print(row)
+
+    except Exception as ex:
+        print(ex)
+    return conn
 
 
 def _check_if_table_exists(conn, table_name):
@@ -227,7 +279,7 @@ def _request_candlestick_data(body):
                 print(
                     f"Status code is {response.status_code} at try number {try_number}, entering sleep for {sleep_time} second(s)")
                 try_number += 1
-                time.sleep(sleep_time)
+                sleep(sleep_time)
             else:
                 print(
                     f"Oops!  Maximum number of tries was reached ({try_number}).  Run the code again...")
@@ -318,13 +370,5 @@ def _load_data_into_database(conn, df, table_name):
 
 
 if __name__ == '__main__':
-    symbols = ['BTCEUR',
-               'ETHEUR',
-               'BNBEUR']
-    # symbols = ['AXSBUSD', 'MANABUSD', 'LUNABUSD']
-    # intervals = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
-    intervals = ['1h', '4h', '1d', '1w', '1M']
-    limit = 1000
-    start_time = None  # 1648965600000
-    end_time = None  # 1648969200000
-    main(symbols, intervals, limit)
+
+    main()
