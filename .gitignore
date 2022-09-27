@@ -1,4 +1,5 @@
 venv/
 notebooks/
+database_credentials.env
 utils.py
 __pycache__/

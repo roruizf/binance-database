@@ -19,8 +19,15 @@ def main():
 
     # CONNECTION TO THE DATABASE
     conn = _connect_to_database()
-    for symbol in symbols:
-        for interval in intervals:
+    # intervals.reverse()
+    # symbols.sort()
+    for interval in intervals:
+        for symbol in symbols:
+            print(f'\n----------------------------------------------------------------')
+            print(
+                f"* Working on {symbol} data ({symbols.index(symbol)+1} / {len(symbols)}) for {interval} interval ({intervals.index(interval)+1} / {len(intervals)}) *")
+            print(f'----------------------------------------------------------------')
+
             table_name = symbol + '_' + interval
             params = _set_download_parameters(conn, table_name, interval)
             df = _download_candlestick_data(symbol, interval, limit, params)
@@ -32,10 +39,10 @@ def main():
 
 
 def _requests_settings():
-    donwload_settings = dict(dotenv_values("requests_settings.env"))
-    quoteAsset = donwload_settings['quoteAsset']
-    intervals = list(donwload_settings['intervals'].split(", "))
-    limit = int(donwload_settings['limit'])
+    download_settings = dict(dotenv_values("download_settings.env"))
+    quoteAsset = download_settings['quoteAsset']
+    intervals = list(download_settings['intervals'].split(", "))
+    limit = int(download_settings['limit'])
     return quoteAsset, intervals, limit
 
 
@@ -51,7 +58,7 @@ def _load_pairs_trade_symbols(quoteAsset):
 
 
 def _connect_to_database():
-    config_credentials = dict(dotenv_values("database.env"))
+    config_credentials = dict(dotenv_values("./database_credentials.env"))
     host = config_credentials['host']
     port = config_credentials['port']
     database = config_credentials['database']
@@ -91,11 +98,11 @@ def _check_if_table_exists(conn, table_name):
     cur.close()
 
     if table_exists:
-        print(f'Table {table_name} exists and will be read...')
+        print(f'* Table {table_name} exists and will be read...')
     else:
         # print(f'Table {table_name} does not exist and will be created...')
         _create_table(conn, table_name)
-        print(f'Table {table_name} has been created...')
+        print(f'* Table {table_name} has been created...')
     return table_exists
 
 
@@ -114,7 +121,7 @@ def _create_table(conn, table_name):
                 number_of_trades integer,
                 taker_buy_base_asset_volume numeric,
                 taker_buy_quote_asset_volume numeric,
-                ignore integer,
+                ignore numeric,
                 CONSTRAINT "{table_name}_pkey" PRIMARY KEY (open_time)
             )
 
@@ -187,12 +194,8 @@ def _interval_to_timedelta(interval):
 
 
 def _download_candlestick_data(symbol, interval, limit, params):
-
-    print(f'\n-------------------------------------------------------------------------------------------------------')
     print(
         f"* Downloading {symbol} data for {interval} interval, from {params['start_time']} to {params['end_time']} (UTC) *")
-    print(f'-------------------------------------------------------------------------------------------------------')
-
     if params['nbr_intervals'] < limit:
         print(' - Downloading data in one round!')
         body = {"symbol": symbol,
@@ -271,7 +274,7 @@ def _request_candlestick_data(body):
     # Downloading data for a given period -> making sure the data is downladed (status_code == 200)
     status = True
     try_number = 1
-    sleep_time = 0.001  # s
+    sleep_time = 0.0001  # s
     while status:
         response = requests.get(url, headers=headers, params=body)
         if response.status_code != 200:
@@ -288,7 +291,7 @@ def _request_candlestick_data(body):
             print(
                 f" - Data downloaded for {body['symbol']} data for {body['interval']} interval")
             status = False
-    response = requests.get(url, headers=headers, params=body)
+    # response = requests.get(url, headers=headers, params=body)
     data = response.json()
     doc_columns = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time',
                    'Quote asset volume', 'Number of trades', 'Taker buy base asset volume', 'Taker buy quote asset volume', 'Ignore']
@@ -319,7 +322,7 @@ def _columns_dtypes(df):
         df['taker_buy_base_asset_volume'])
     df['taker_buy_quote_asset_volume'] = pd.to_numeric(
         df['taker_buy_quote_asset_volume'])
-    df['ignore'] = df['ignore'].astype(int)
+    df['ignore'] = pd.to_numeric(df['ignore'])
     return df
 
 
